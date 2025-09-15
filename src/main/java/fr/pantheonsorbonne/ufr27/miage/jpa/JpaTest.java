@@ -2,6 +2,9 @@ package fr.pantheonsorbonne.ufr27.miage.jpa;
 
 import java.util.List;
 
+import fr.pantheonsorbonne.ufr27.miage.jpa.domain.Department;
+import fr.pantheonsorbonne.ufr27.miage.jpa.domain.Employee;
+import fr.pantheonsorbonne.ufr27.miage.jpa.domain.EmployeeName;
 import jakarta.enterprise.context.Dependent;
 import jakarta.enterprise.inject.se.SeContainer;
 import jakarta.enterprise.inject.se.SeContainerInitializer;
@@ -13,8 +16,6 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Root;
 
-import fr.pantheonsorbonne.ufr27.miage.jpa.domain.Department;
-import fr.pantheonsorbonne.ufr27.miage.jpa.domain.Employee;
 
 @Dependent
 public class JpaTest {
@@ -29,6 +30,66 @@ public class JpaTest {
 				.initialize()) {
 
 			JpaTest jpa = container.select(JpaTest.class).get();
+
+			EntityTransaction tr = jpa.manager.getTransaction();
+			try {
+				tr.begin();
+				jpa.createEmployees();
+				tr.commit();
+			} catch(Exception e) {
+				if (tr.isActive()) {
+					tr.rollback();
+					throw e;
+				}
+			}
+
+			jpa.listEmployees();
+
+		}
+	}
+
+	private void createEmployees() {
+		CriteriaBuilder cb = manager.getCriteriaBuilder();
+
+		// JAVA
+
+		CriteriaQuery<Employee> q = cb.createQuery(Employee.class);
+		Root<Employee> e = q.from(Employee.class);
+		Join<Employee, Department> d = e.join("department");
+		q.select(e).where(cb.equal(d.get("name"), "java"));
+
+		List<Employee> javaEmployees = manager.createQuery(q).getResultList();
+		if (!javaEmployees.isEmpty()) {
+			Department depJava = new Department("java");
+			manager.persist(depJava);
+			manager.persist(new Employee("Anis Bahmani", depJava, 1000));
+			manager.persist(new Employee("Jean Dupont", depJava, 1200));
+		}
+
+		{
+			q = cb.createQuery(Employee.class);
+			e = q.from(Employee.class);
+			d = e.join("department");
+			q.select(e).where(cb.equal(d.get("name"), "php"));
+
+			List<Employee> phpEmployees = manager.createQuery(q).getResultList();
+			if (!phpEmployees.isEmpty()) {
+				Department depPhp = new Department("php");
+				manager.persist(depPhp);
+				manager.persist(new Employee("John Doe", depPhp, 1400));
+				manager.persist(new Employee("Test test", depPhp, 900));
+			}
+		}
+	}
+
+	private void listEmployees() {
+		CriteriaBuilder cb = manager.getCriteriaBuilder();
+		CriteriaQuery<Employee> q = cb.createQuery(Employee.class);
+		Root<Employee> e = q.from(Employee.class);
+		q.select(e);
+		List<Employee> employees = manager.createQuery(q).getResultList();
+		for (Employee emp : employees) {
+			System.out.println(emp);
 		}
 	}
 }
